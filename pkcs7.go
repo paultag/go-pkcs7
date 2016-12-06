@@ -14,8 +14,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-
-	"pault.ag/go/cybercom/store"
 )
 
 var (
@@ -338,20 +336,14 @@ type EnvelopedData struct {
 	EncryptedContentInfo EncryptedContentInfo
 }
 
-func (e EnvelopedData) Decrypt(s store.Store, rand io.Reader, opts crypto.DecrypterOpts) ([]byte, error) {
-	cert, err := s.Certificate()
-	if err != nil {
-		/* Even if this is Uninitialized, it's fine, we actually want to pass
-		 * that along. */
-		return nil, err
-	}
+func (e EnvelopedData) Decrypt(cert x509.Certificate, decrypter crypto.Decrypter, rand io.Reader, opts crypto.DecrypterOpts) ([]byte, error) {
 	/* Now, let's find our RecipientInfo payload */
-	whoami, err := e.Recipients.Find(*cert)
+	whoami, err := e.Recipients.Find(cert)
 	if err != nil {
 		return nil, err
 	}
 
-	decryptionKey, err := whoami.Decrypt(s, rand, opts)
+	decryptionKey, err := whoami.Decrypt(decrypter, rand, opts)
 	if err != nil {
 		return nil, err
 	}
