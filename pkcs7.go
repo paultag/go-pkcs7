@@ -18,28 +18,28 @@ import (
 
 var (
 	// TODO: Remove this.
-	Unimplemented = fmt.Errorf("cybercom pkcs7: paultag is lazy")
+	Unimplemented = fmt.Errorf("pkcs7: paultag is lazy")
 
 	// If the PKCS#7 implemtation here doesn't know what to do with that Content Type,
 	// we'll bail out of the function with one of these guys.
-	UnsupportedContent = fmt.Errorf("cybercom pkcs7: unsupported content type")
+	UnsupportedContent = fmt.Errorf("pkcs7: unsupported content type")
 
 	// If the PKCS#7 decryption bits don't know how to decrypt the message,
 	// we're going to go ahead and tell the user we don't know what's up.
-	UnsupportedAlgorithm = fmt.Errorf("cybercom pkcs7: unsupported algorithm")
+	UnsupportedAlgorithm = fmt.Errorf("pkcs7: unsupported algorithm")
 
 	// If we can't find a matching x509 Certificate in the RecipientInfo list,
 	// we'll drop this out of Error. Matching is done based on Issuer bytes
 	// and Serial. If you know exactly what is going on (e.g. Self-Signed and
 	// you didn't keep it around because lol self signed certificates aren't
 	// real), you can go ahead and manually fiddle the internals.
-	NoMatchingCertificate = fmt.Errorf("cybercom pkcs7: can't find your cert")
+	NoMatchingCertificate = fmt.Errorf("pkcs7: can't find your cert")
 
 	//
-	NoMatchingAttribute = fmt.Errorf("cybercom pkcs7: can't find the right attribute")
+	NoMatchingAttribute = fmt.Errorf("pkcs7: can't find the right attribute")
 
 	//
-	NoMatchingAlgorithm = fmt.Errorf("cybercom pkcs7: can't find the right hashing algorithm")
+	NoMatchingAlgorithm = fmt.Errorf("pkcs7: can't find the right hashing algorithm")
 )
 
 var (
@@ -260,7 +260,7 @@ func (s SignedData) VerifyHash(signerInfo SignerInfo, cert x509.Certificate) ([]
 	sum := hash.Sum(nil)
 
 	if !hmac.Equal(digest, sum) {
-		return nil, fmt.Errorf("cybercom pkcs7: digest mismatch %x vs %x")
+		return nil, fmt.Errorf("pkcs7: digest mismatch %x vs %x")
 	}
 
 	return sum, nil
@@ -387,7 +387,7 @@ func (e EncryptedContentInfo) RawDecrypt(key []byte) ([]byte, error) {
 	iv := e.Algorithm.Parameters.Bytes
 
 	if len(iv) != blockCipher.BlockSize() {
-		return nil, fmt.Errorf("cybercom pkcs7: iv doesn't match block size")
+		return nil, fmt.Errorf("pkcs7: iv doesn't match block size")
 	}
 
 	cbc := cipher.NewCBCDecrypter(blockCipher, iv)
@@ -432,7 +432,7 @@ func (c ContentInfo) RawContent() ([]byte, error) {
 func (c ContentInfo) SignedData() (*SignedData, error) {
 	if !c.Type.Equal(oidSignedData) {
 		return nil, fmt.Errorf(
-			"cybercom pkcs7: trying to parse SignedData without the right OID",
+			"pkcs7: trying to parse SignedData without the right OID",
 		)
 	}
 	signedData := SignedData{}
@@ -448,7 +448,7 @@ func (c ContentInfo) SignedData() (*SignedData, error) {
 func (c ContentInfo) EnvelopedData() (*EnvelopedData, error) {
 	if !c.Type.Equal(oidEnvelopedData) {
 		return nil, fmt.Errorf(
-			"cybercom pkcs7: trying to parse EnvelopedData without the right OID",
+			"pkcs7: trying to parse EnvelopedData without the right OID",
 		)
 	}
 	envelopedData := EnvelopedData{}
@@ -465,7 +465,7 @@ func New(data []byte) (*ContentInfo, error) {
 		return nil, err
 	}
 	if len(trailingBytes) != 0 {
-		return nil, fmt.Errorf("cybercom pkcs7: trailing der bytes in the message")
+		return nil, fmt.Errorf("pkcs7: trailing der bytes in the message")
 	}
 
 	return contentInfo, nil
