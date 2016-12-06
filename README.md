@@ -1,6 +1,8 @@
 pault.ag/go/pkcs7
 =================
 
+[godocs can be found here](https://godoc.org/pault.ag/go/pkcs7)
+
 Pure-Go implemntation of the PKCS#7 specification.
 
 WARNING
