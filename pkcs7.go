@@ -17,9 +17,6 @@ import (
 )
 
 var (
-	// TODO: Remove this.
-	Unimplemented = fmt.Errorf("pkcs7: paultag is lazy")
-
 	// If the PKCS#7 implemtation here doesn't know what to do with that Content Type,
 	// we'll bail out of the function with one of these guys.
 	UnsupportedContent = fmt.Errorf("pkcs7: unsupported content type")
