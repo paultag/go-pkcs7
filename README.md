@@ -1,5 +1,5 @@
-pkcs7
-=====
+pault.ag/go/pkcs7
+=================
 
 Pure-Go implemntation of the PKCS#7 specification.
 
