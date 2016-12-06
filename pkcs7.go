@@ -51,27 +51,35 @@ var (
 	// real), you can go ahead and manually fiddle the internals.
 	NoMatchingCertificate = fmt.Errorf("pkcs7: can't find your cert")
 
-	//
+	// If we can't find a matching asn1 ObjectIdentifier, go ahead and throw
+	// one of these suckas.
 	NoMatchingAttribute = fmt.Errorf("pkcs7: can't find the right attribute")
 
-	//
+	// If we can't find a hashing algorithm that matches the one we want, we
+	// might return this fella'
 	NoMatchingAlgorithm = fmt.Errorf("pkcs7: can't find the right hashing algorithm")
 )
 
 var (
+	// Data encapsulation
 	oidEnvelopedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 3}
 	oidSignedData    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
 
+	// OID for a message digest Attribute (usually found in the
+	// AuthenticatedAttributes)
 	oidAttributeMessageDigest = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 9, 4}
 
+	// Algorithms used for Encryption
 	oidEncryptionAES256CBC  = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 1, 42}
 	oidEncryptionDESCBC     = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 7}
 	oidEncryptionDESEDE3CBC = asn1.ObjectIdentifier{1, 2, 840, 113549, 3, 7}
 
+	// Algorithms used for Hashing
 	oidDigestAlgorithmSHA1   = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
 	oidDigestAlgorithmSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
 	// XXX: Add more hashes, this is nowhere near good enough.
 
+	// Algorithms used for signatures
 	oidSignatureAlgorithmRSA = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1}
 )
 
@@ -79,8 +87,9 @@ var (
 
 // Look up a x509.SignatureAlgorithm by the ASN1 ObjectIdentifiers sent over
 // in the SignerInfo, which can be used out in a call x509.CheckSignature
+// If we need additional algorithms or hashes to check (or create) signatures,
+// this is the bits that need to know about it.
 func getSignatureAlgorithmByOID(signerInfo SignerInfo) (x509.SignatureAlgorithm, error) {
-
 	digestAlgorithm := signerInfo.DigestAlgorithm.Algorithm
 	signatureAlgorithm := signerInfo.DigestEncryptionAlgorithm.Algorithm
 
@@ -94,7 +103,9 @@ func getSignatureAlgorithmByOID(signerInfo SignerInfo) (x509.SignatureAlgorithm,
 	}
 }
 
-// Get a crypto.Hash by ASN1 ObjectIdentifier.
+// Get a crypto.Hash by ASN1 ObjectIdentifier. This is useful when you don't
+// super mind what the hash is, but want to check it. If we need to support
+// additional hashing algorithms, this is where it should happen.
 func getHashByOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 	switch {
 	case oid.Equal(oidDigestAlgorithmSHA256):
