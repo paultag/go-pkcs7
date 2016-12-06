@@ -119,6 +119,20 @@ func getHashByOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 
 // }}}
 
+// {{{ marshal nonsense
+
+func marshal(data interface{}) (*asn1.RawValue, error) {
+	bytes, err := asn1.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
+	var blobularData asn1.RawValue
+	asn1.Unmarshal(bytes, &blobularData)
+	return &blobularData, nil
+}
+
+// }}}
+
 // {{{ Attributes
 
 type Attribute struct {
@@ -486,7 +500,7 @@ func (c ContentInfo) EnvelopedData() (*EnvelopedData, error) {
 }
 
 // DER encoded only pls
-func New(data []byte) (*ContentInfo, error) {
+func Parse(data []byte) (*ContentInfo, error) {
 	contentInfo, trailingBytes, err := parseContentInfo(data)
 	if err != nil {
 		return nil, err
