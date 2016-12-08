@@ -34,14 +34,14 @@ func verifyRSA(rand io.Reader, cert x509.Certificate, input, signature []byte, o
 		input,
 		signature,
 	)
-	return err == nil, err
+	return err
 }
 
-func Verify(rand io.Reader, cert x509.Certificate, input, signature []byte, opts VerifierOpts) (bool, error) {
+func Verify(rand io.Reader, cert x509.Certificate, input, signature []byte, opts VerifierOpts) error {
 	switch cert.PublicKeyAlgorithm {
 	case x509.RSA:
 		return verifyRSA(rand, cert, input, signature, opts)
 	default:
-		return false, Unsupported
+		return Unsupported
 	}
 }
