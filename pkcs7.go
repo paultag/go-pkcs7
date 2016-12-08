@@ -440,7 +440,6 @@ func (e EncryptedContentInfo) RawDecrypt(key []byte) ([]byte, error) {
 	}
 
 	return decryptedBytes, nil
-
 }
 
 // }}}

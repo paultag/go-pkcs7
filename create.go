@@ -73,6 +73,32 @@ func makeEntropy(rand io.Reader, length int) ([]byte, error) {
 	return target, nil
 }
 
+func encryptContentInfo(
+	rand io.Reader,
+	encryptionAlgorithm pkix.AlgorithmIdentifier,
+	plaintext []byte,
+) (*EncryptedContentInfo, error) {
+	blockCipher, err := getBlockCipherByOID(encryptionAlgorithm)
+	if err != nil {
+		return nil, err
+	}
+	iv := encryptionAlgorithm.Parameters.Bytes
+	cbc := cipher.NewCBCDecrypter(blockCipher, iv)
+	encryptedBytes := make([]byte, len(plaintext))
+
+	plaintext, err = Pad(encryptedBytes, uint(cbc.BlockSize()))
+	if err != nil {
+		return nil, err
+	}
+
+	cbc.CryptBlocks(decryptedBytes, encryptedBytes)
+
+	encryptedContentInfo := EncryptedContentInfo{
+		Type:     oidData,
+		Alorithm: encryptionAlgorithm,
+	}
+}
+
 func encryptContent(
 	rand io.Reader,
 	recipients []x509.Certificate,
@@ -91,14 +117,15 @@ func encryptContent(
 		sessionKey,
 	)
 
+	encryptedContentInfo, err := encryptContentInfo()
+	if err != nil {
+		return nil, err
+	}
+
 	ed := EnvelopedData{
-		Version:    0,
-		Recipients: recipientsInfo,
-		EncryptedContentInfo: EncryptedContentInfo{
-			Type:      oidData,
-			Algorithm: encryptionAlgorithm,
-			Content:   asn1.RawValue{},
-		},
+		Version:              0,
+		Recipients:           recipientsInfo,
+		EncryptedContentInfo: encryptedContentInfo,
 	}
 	return marshal(ed)
 }
