@@ -64,6 +64,7 @@ var (
 	// Data encapsulation
 	oidEnvelopedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 3}
 	oidSignedData    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
+	oidData          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
 
 	// OID for a message digest Attribute (usually found in the
 	// AuthenticatedAttributes)
