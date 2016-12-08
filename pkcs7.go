@@ -64,7 +64,6 @@ var (
 	// Data encapsulation
 	oidEnvelopedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 3}
 	oidSignedData    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
-	oidData          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
 
 	// OID for a message digest Attribute (usually found in the
 	// AuthenticatedAttributes)
@@ -115,20 +114,6 @@ func getHashByOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 		return crypto.SHA1, nil
 	default:
 		return crypto.Hash(0), NoMatchingAlgorithm
-	}
-}
-
-// get a block encryption algorithm by its Algorithm Identifier
-func getEncryptionAlgorithmByAID(oid asn1.ObjectIdentifier, key []byte) (cipher.Block, error) {
-	switch {
-	case oid.Equal(oidEncryptionDESCBC):
-		return des.NewCipher(key)
-	case oid.Equal(oidEncryptionDESEDE3CBC):
-		return des.NewTripleDESCipher(key)
-	case oid.Equal(oidEncryptionAES256CBC):
-		return aes.NewCipher(key)
-	default:
-		return nil, UnsupportedAlgorithm
 	}
 }
 
@@ -424,7 +409,17 @@ func (e EncryptedContentInfo) RawDecrypt(key []byte) ([]byte, error) {
 	var blockCipher cipher.Block
 	var err error
 
-	blockCipher, err = getEncryptionAlgorithmByAID(e.Algorithm.Algorithm, key)
+	algorithm := e.Algorithm.Algorithm
+	switch {
+	case algorithm.Equal(oidEncryptionDESCBC):
+		blockCipher, err = des.NewCipher(key)
+	case algorithm.Equal(oidEncryptionDESEDE3CBC):
+		blockCipher, err = des.NewTripleDESCipher(key)
+	case algorithm.Equal(oidEncryptionAES256CBC):
+		blockCipher, err = aes.NewCipher(key)
+	default:
+		return nil, UnsupportedAlgorithm
+	}
 
 	if err != nil {
 		return nil, err
