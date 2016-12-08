@@ -118,6 +118,19 @@ func getHashByOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 	}
 }
 
+func getBlockCipherByOID(algorithm asn1.ObjectIdentifier, key []byte) (cipher.Block, error) {
+	switch {
+	case algorithm.Equal(oidEncryptionDESCBC):
+		return des.NewCipher(key)
+	case algorithm.Equal(oidEncryptionDESEDE3CBC):
+		return des.NewTripleDESCipher(key)
+	case algorithm.Equal(oidEncryptionAES256CBC):
+		return aes.NewCipher(key)
+	default:
+		return nil, UnsupportedAlgorithm
+	}
+}
+
 // }}}
 
 // {{{ marshal nonsense
@@ -407,27 +420,12 @@ type EncryptedContentInfo struct {
 func (e EncryptedContentInfo) RawDecrypt(key []byte) ([]byte, error) {
 	encryptedBytes := e.Content.Bytes
 
-	var blockCipher cipher.Block
-	var err error
-
-	algorithm := e.Algorithm.Algorithm
-	switch {
-	case algorithm.Equal(oidEncryptionDESCBC):
-		blockCipher, err = des.NewCipher(key)
-	case algorithm.Equal(oidEncryptionDESEDE3CBC):
-		blockCipher, err = des.NewTripleDESCipher(key)
-	case algorithm.Equal(oidEncryptionAES256CBC):
-		blockCipher, err = aes.NewCipher(key)
-	default:
-		return nil, UnsupportedAlgorithm
-	}
-
+	blockCipher, err := getBlockCipherByOID(e.Algorithm.Algorithm, key)
 	if err != nil {
 		return nil, err
 	}
 
 	iv := e.Algorithm.Parameters.Bytes
-
 	if len(iv) != blockCipher.BlockSize() {
 		return nil, fmt.Errorf("pkcs7: iv doesn't match block size")
 	}
