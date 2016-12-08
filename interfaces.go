@@ -31,7 +31,7 @@ type Verifier interface {
 
 	// Verify checks the valididity of the signature over the given
 	// digest value.
-	Verify(rand io.Reader, digest []byte, signature []byte, opts VerifierOpts) (valid bool, err error)
+	Verify(rand io.Reader, digest []byte, signature []byte, opts VerifierOpts) error
 }
 
 type VerifierOpts interface {
