@@ -20,6 +20,7 @@
 package pkcs7
 
 import (
+	"bytes"
 	"fmt"
 )
 
@@ -44,6 +45,12 @@ func Unpad(data []byte, blockSize uint) ([]byte, error) {
 	}
 
 	return data[:len(data)-paddingLength], nil
+}
+
+func Pad(data []byte, blockSize uint) ([]byte, error) {
+	neededBytes := blockSize - (uint(len(data)) % blockSize)
+	return append(data, bytes.Repeat([]byte{byte(neededBytes)}, int(neededBytes))...), nil
+
 }
 
 // vim: foldmethod=marker
