@@ -26,7 +26,7 @@ func Encrypt(rand io.Reader, cert x509.Certificate, plaintext []byte, opts Encry
 	}
 }
 
-func verifyRSA(rand io.Reader, cert x509.Certificate, input, signature []byte, opts VerifierOpts) (bool, error) {
+func verifyRSA(rand io.Reader, cert x509.Certificate, input, signature []byte, opts VerifierOpts) error {
 	rsaPublicKey := cert.PublicKey.(*rsa.PublicKey)
 	err := rsa.VerifyPKCS1v15(
 		rsaPublicKey,
