@@ -40,7 +40,7 @@ func Unpad(data []byte, blockSize uint) ([]byte, error) {
 	paddingLength := int(data[len(data)-1])
 	for _, el := range data[len(data)-paddingLength:] {
 		if el != byte(paddingLength) {
-			return nil, fmt.Errorf("Padding had malformed entries")
+			return nil, fmt.Errorf("Padding had malformed entries. Have '%x', expected '%x'", paddingLength, el)
 		}
 	}
 

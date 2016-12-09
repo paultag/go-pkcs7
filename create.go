@@ -46,7 +46,7 @@ func readRand(rand io.Reader, size int) ([]byte, error) {
 
 func newIssuerAndSerialNumber(cert x509.Certificate) (*IssuerAndSerialNumber, error) {
 	return &IssuerAndSerialNumber{
-		Issuer: asn1.RawValue{Bytes: cert.RawIssuer},
+		Issuer: asn1.RawValue{FullBytes: cert.RawIssuer},
 		Serial: cert.SerialNumber,
 	}, nil
 }
@@ -56,10 +56,12 @@ func newRecipientInfo(rand io.Reader, cert x509.Certificate, algorithm pkix.Algo
 	if err != nil {
 		return nil, err
 	}
+
 	encryptedKey, err := utils.Encrypt(rand, cert, key, nil)
 	if err != nil {
 		return nil, err
 	}
+
 	return &RecipientInfo{
 		IssuerAndSerialNumber:  *issuerAndSerial,
 		KeyEncryptionAlgorithm: algorithm,
@@ -131,7 +133,9 @@ func Encrypt(rand io.Reader, to []x509.Certificate, plaintext []byte) (*ContentI
 		return nil, err
 	}
 
-	blockMode := cipher.NewCBCDecrypter(block, iv)
+	// this assumes CBC, which is hard coded above in a few places too
+	blockMode := cipher.NewCBCEncrypter(block, iv)
+
 	encryptedBytes := make([]byte, len(plaintext))
 	blockMode.CryptBlocks(encryptedBytes, plaintext)
 
