@@ -78,6 +78,7 @@ var (
 	// Algorithms used for Hashing
 	oidDigestAlgorithmSHA1   = asn1.ObjectIdentifier{1, 3, 14, 3, 2, 26}
 	oidDigestAlgorithmSHA256 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 1}
+	oidDigestAlgorithmSHA512 = asn1.ObjectIdentifier{2, 16, 840, 1, 101, 3, 4, 2, 3}
 	// XXX: Add more hashes, this is nowhere near good enough.
 
 	// Algorithms used for signatures
@@ -99,6 +100,8 @@ func getSignatureAlgorithmByOID(signerInfo SignerInfo) (x509.SignatureAlgorithm,
 		return x509.SHA256WithRSA, nil
 	case signatureAlgorithm.Equal(oidSignatureAlgorithmRSA) && digestAlgorithm.Equal(oidDigestAlgorithmSHA1):
 		return x509.SHA1WithRSA, nil
+	case signatureAlgorithm.Equal(oidSignatureAlgorithmRSA) && digestAlgorithm.Equal(oidDigestAlgorithmSHA512):
+		return x509.SHA512WithRSA, nil
 	default:
 		return x509.SignatureAlgorithm(0), NoMatchingAlgorithm
 	}
@@ -109,6 +112,8 @@ func getSignatureAlgorithmByOID(signerInfo SignerInfo) (x509.SignatureAlgorithm,
 // additional hashing algorithms, this is where it should happen.
 func getHashByOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 	switch {
+	case oid.Equal(oidDigestAlgorithmSHA512):
+		return crypto.SHA512, nil
 	case oid.Equal(oidDigestAlgorithmSHA256):
 		return crypto.SHA256, nil
 	case oid.Equal(oidDigestAlgorithmSHA1):
@@ -315,7 +320,10 @@ func (s SignedData) VerifyHash(signerInfo SignerInfo, cert x509.Certificate) ([]
 	sum := hash.Sum(nil)
 
 	if !hmac.Equal(digest, sum) {
-		return nil, fmt.Errorf("pkcs7: digest mismatch %x vs %x")
+		return nil, fmt.Errorf(
+			"pkcs7: digest mismatch %x vs %x",
+			digest, sum,
+		)
 	}
 
 	return sum, nil

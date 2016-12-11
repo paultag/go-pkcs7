@@ -25,6 +25,7 @@ import (
 
 	"encoding/asn1"
 
+	"crypto"
 	"crypto/cipher"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -103,6 +104,152 @@ func newRecipients(rand io.Reader, to []x509.Certificate, encryptionAlgorithm pk
 		recipients = append(recipients, *recipient)
 	}
 	return &recipients, nil
+}
+
+func newRawCertificates(certs []x509.Certificate) (*RawCertificates, error) {
+	rawData := []byte{}
+	for _, cert := range certs {
+		rawData = append(rawData, cert.Raw...)
+	}
+
+	return &RawCertificates{
+		Raw: asn1.RawContent(rawData),
+	}, nil
+
+}
+
+func newSignedData(
+	digestAlgorithmIdentifiers []pkix.AlgorithmIdentifier,
+	contentInfo ContentInfo,
+	rawCertificates RawCertificates,
+	cRLs []pkix.CertificateList,
+	signerInfo SignersInfo,
+) (*SignedData, error) {
+	return &SignedData{
+		DigestAlgorithmIdentifiers: digestAlgorithmIdentifiers,
+		ContentInfo:                contentInfo,
+		RawCertificates:            rawCertificates,
+		CRLs:                       cRLs,
+		SignerInfo:                 signerInfo,
+	}, nil
+}
+
+func newSignerInfo(
+	issuerAndSerialNumber IssuerAndSerialNumber,
+	digestAlgorithm pkix.AlgorithmIdentifier,
+	authenticatedAttributes Attributes,
+	signatureAlgorithm pkix.AlgorithmIdentifier,
+	digestSignature []byte,
+	unauthenticatedAttributes Attributes,
+) (*SignerInfo, error) {
+	return &SignerInfo{
+		Version:                   1,
+		IssuerAndSerialNumber:     issuerAndSerialNumber,
+		DigestAlgorithm:           digestAlgorithm,
+		AuthenticatedAttributes:   authenticatedAttributes,
+		DigestEncryptionAlgorithm: signatureAlgorithm,
+		EncryptedDigest:           digestSignature,
+		UnauthenticatedAttributes: unauthenticatedAttributes,
+	}, nil
+}
+
+func signAttributes(rand io.Reader, attributes AttributeSet, hash crypto.Hash, signer crypto.Signer, opts crypto.SignerOpts) ([]byte, error) {
+	data, err := asn1.Marshal(attributes)
+	if err != nil {
+		return nil, err
+	}
+	var raw asn1.RawValue
+	asn1.Unmarshal(data, &raw)
+
+	hasher := hash.New()
+	hasher.Write(raw.Bytes)
+	return hasher.Sum(nil), nil
+}
+
+func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer crypto.Signer, opts crypto.SignerOpts) (*ContentInfo, error) {
+	signatureAlgorithm := oidSignatureAlgorithmRSA
+	hashingAlgorithm := oidDigestAlgorithmSHA256
+
+	issuerAndSerialNumber, err := newIssuerAndSerialNumber(cert)
+	if err != nil {
+		return nil, err
+	}
+
+	hash, err := getHashByOID(hashingAlgorithm)
+	if err != nil {
+		return nil, err
+	}
+
+	var rawValue asn1.RawValue
+	_, err = asn1.Unmarshal(contentInfo.Content.Bytes, &rawValue)
+	if err != nil {
+		return nil, err
+	}
+
+	hasher := hash.New()
+	hasher.Write(rawValue.Bytes)
+	hashBytes := hasher.Sum(nil)
+
+	marshaledHashBytes, err := asn1.Marshal(hashBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	authenticatedAttributes := Attributes{
+		Attribute{
+			Type: oidAttributeMessageDigest,
+			Value: asn1.RawValue{
+				IsCompound: true,
+				Tag:        17,
+				Bytes:      marshaledHashBytes,
+			},
+		},
+	}
+	unauthenticatedAttributes := Attributes{}
+
+	attributeHashSignature, err := signAttributes(rand, AttributeSet{Attributes: authenticatedAttributes}, hash, signer, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	signerInfo, err := newSignerInfo(
+		*issuerAndSerialNumber,
+		pkix.AlgorithmIdentifier{Algorithm: hashingAlgorithm},
+		authenticatedAttributes,
+		pkix.AlgorithmIdentifier{Algorithm: signatureAlgorithm},
+		attributeHashSignature,
+		unauthenticatedAttributes,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	certificates, err := newRawCertificates([]x509.Certificate{cert})
+	if err != nil {
+		return nil, err
+	}
+
+	signedData, err := newSignedData(
+		[]pkix.AlgorithmIdentifier{
+			pkix.AlgorithmIdentifier{
+				Algorithm: hashingAlgorithm,
+			},
+		},
+		contentInfo,
+		*certificates,
+		[]pkix.CertificateList{},
+		SignersInfo{*signerInfo},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	signedDataBytes, err := asn1.Marshal(*signedData)
+	if err != nil {
+		return nil, err
+	}
+
+	return newContentInfo(oidSignedData, signedDataBytes)
 }
 
 //
