@@ -163,7 +163,8 @@ func signAttributes(rand io.Reader, attributes AttributeSet, hash crypto.Hash, s
 
 	hasher := hash.New()
 	hasher.Write(raw.Bytes)
-	return hasher.Sum(nil), nil
+
+	return signer.Sign(rand, hasher.Sum(nil), opts)
 }
 
 func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer crypto.Signer, opts crypto.SignerOpts) (*ContentInfo, error) {
@@ -207,7 +208,13 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 	}
 	unauthenticatedAttributes := Attributes{}
 
-	attributeHashSignature, err := signAttributes(rand, AttributeSet{Attributes: authenticatedAttributes}, hash, signer, opts)
+	attributeHashSignature, err := signAttributes(
+		rand,
+		AttributeSet{Attributes: authenticatedAttributes},
+		hash,
+		signer,
+		opts,
+	)
 	if err != nil {
 		return nil, err
 	}
