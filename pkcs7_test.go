@@ -1,6 +1,7 @@
 package pkcs7_test
 
 import (
+	"bytes"
 	"flag"
 	"os"
 	"testing"
@@ -30,8 +31,6 @@ func ok(t *testing.T, err error) {
 }
 
 func TestEncryption(t *testing.T) {
-	assert(t, cert != nil, "cert isn't set, what")
-
 	contentInfo, err := pkcs7.Encrypt(
 		rand.Reader,
 		[]x509.Certificate{*cert},
@@ -41,6 +40,30 @@ func TestEncryption(t *testing.T) {
 
 	_, err = asn1.Marshal(*contentInfo)
 	ok(t, err)
+}
+
+func TestEncryptionRoundTrip(t *testing.T) {
+	contentInfo, err := pkcs7.Encrypt(
+		rand.Reader,
+		[]x509.Certificate{*cert},
+		SecretData,
+	)
+	ok(t, err)
+
+	contentInfoBytes, err := asn1.Marshal(*contentInfo)
+	ok(t, err)
+
+	contentInfo, err = pkcs7.Parse(contentInfoBytes)
+	ok(t, err)
+
+	envelopedData, err := contentInfo.EnvelopedData()
+	ok(t, err)
+
+	secretData, err := envelopedData.Decrypt(*cert, rsaPrivateKey, rand.Reader, nil)
+	ok(t, err)
+
+	assert(t, bytes.Compare(secretData, SecretData) == 0, "decrypted data doesn't match test corpus")
+
 }
 
 func TestMain(m *testing.M) {
