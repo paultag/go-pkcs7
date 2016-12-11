@@ -30,16 +30,12 @@ func ok(t *testing.T, err error) {
 }
 
 func TestEncryption(t *testing.T) {
-	data := []byte(`Congress shall make no law respecting an establishment of
-religion, or prohibiting the free exercise thereof; or abridging the freedom of
-speech, or of the press; or the right of the people peaceably to assemble, and
-to petition the Government for a redress of grievances.`)
 	assert(t, cert != nil, "cert isn't set, what")
 
 	contentInfo, err := pkcs7.Encrypt(
 		rand.Reader,
 		[]x509.Certificate{*cert},
-		data,
+		SecretData,
 	)
 	ok(t, err)
 
@@ -68,7 +64,7 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
-const (
+var (
 	TestCert string = `-----BEGIN CERTIFICATE-----
 MIIEXTCCAsWgAwIBAgIRAJB4MY12+llkm0LMilO286kwDQYJKoZIhvcNAQELBQAw
 WTELMAkGA1UEBhMCVVMxKjAoBgNVBAoTIVN0cmV4Q29ycCBTeW5lcm5pc3RzIElu
@@ -136,4 +132,8 @@ LxRjbauUde0pzZx8VUmbZ2AA9halL7cuSxBTwuTlVgfcZatlgh7TbbiXOSGsq6gi
 ZBCLq8bfn7ZZWn+AnVYijkrWUyjYFpz/hcpJ4VzMp7vEDcyxnh0fGOs=
 -----END RSA PRIVATE KEY-----
 `
+	SecretData []byte = []byte(`Congress shall make no law respecting an establishment of
+religion, or prohibiting the free exercise thereof; or abridging the freedom of
+speech, or of the press; or the right of the people peaceably to assemble, and
+to petition the Government for a redress of grievances.`)
 )
