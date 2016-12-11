@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -17,11 +18,16 @@ import (
 
 var cert *x509.Certificate
 var rsaPrivateKey *rsa.PrivateKey
+var someOtherRsaPrivateKey *rsa.PrivateKey
 
 func assert(t *testing.T, condition bool, what string) {
 	if !condition {
 		t.Fatal(what)
 	}
+}
+
+func nokay(t *testing.T, err error, what string) {
+	assert(t, err != nil, what)
 }
 
 func ok(t *testing.T, err error) {
@@ -63,7 +69,69 @@ func TestEncryptionRoundTrip(t *testing.T) {
 	ok(t, err)
 
 	assert(t, bytes.Compare(secretData, SecretData) == 0, "decrypted data doesn't match test corpus")
+}
 
+func TestSign(t *testing.T) {
+	dataContentInfo, err := pkcs7.Data(SecretData)
+	ok(t, err)
+	_, err = pkcs7.Sign(rand.Reader, *dataContentInfo, *cert, rsaPrivateKey, crypto.SHA256)
+	ok(t, err)
+}
+
+func TestSignAndVerify(t *testing.T) {
+	dataContentInfo, err := pkcs7.Data(SecretData)
+	ok(t, err)
+	signedContentInfo, err := pkcs7.Sign(rand.Reader, *dataContentInfo, *cert, rsaPrivateKey, crypto.SHA256)
+	ok(t, err)
+
+	signedContentInfoBytes, err := asn1.Marshal(*signedContentInfo)
+	ok(t, err)
+
+	contentInfo, err := pkcs7.Parse(signedContentInfoBytes)
+	ok(t, err)
+
+	underlyingContentInfo, err := contentInfo.SignedData()
+	ok(t, err)
+
+	ok(t, underlyingContentInfo.Verify(*cert))
+}
+
+func TestSignAndFailsToVerifyBadHash(t *testing.T) {
+	dataContentInfo, err := pkcs7.Data(SecretData)
+	ok(t, err)
+	signedContentInfo, err := pkcs7.Sign(rand.Reader, *dataContentInfo, *cert, rsaPrivateKey, crypto.SHA256)
+	ok(t, err)
+
+	signedContentInfo.Content.Bytes[100] = 'h'
+
+	signedContentInfoBytes, err := asn1.Marshal(*signedContentInfo)
+	ok(t, err)
+
+	contentInfo, err := pkcs7.Parse(signedContentInfoBytes)
+	ok(t, err)
+
+	underlyingContentInfo, err := contentInfo.SignedData()
+	ok(t, err)
+
+	nokay(t, underlyingContentInfo.Verify(*cert), "Hash validation passed")
+}
+
+func TestSignAndFailsToVerifySignature(t *testing.T) {
+	dataContentInfo, err := pkcs7.Data(SecretData)
+	ok(t, err)
+	signedContentInfo, err := pkcs7.Sign(rand.Reader, *dataContentInfo, *cert, someOtherRsaPrivateKey, crypto.SHA256)
+	ok(t, err)
+
+	signedContentInfoBytes, err := asn1.Marshal(*signedContentInfo)
+	ok(t, err)
+
+	contentInfo, err := pkcs7.Parse(signedContentInfoBytes)
+	ok(t, err)
+
+	underlyingContentInfo, err := contentInfo.SignedData()
+	ok(t, err)
+
+	nokay(t, underlyingContentInfo.Verify(*cert), "Bogus signature was fine passed")
 }
 
 func TestMain(m *testing.M) {
@@ -72,15 +140,21 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
+	cert = testCert
 
 	block, _ = pem.Decode([]byte(TestKey))
 	rsaKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		panic(err)
 	}
-
-	cert = testCert
 	rsaPrivateKey = rsaKey
+
+	block, _ = pem.Decode([]byte(SomeOtherKey))
+	rsaKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+	if err != nil {
+		panic(err)
+	}
+	someOtherRsaPrivateKey = rsaKey
 
 	flag.Parse()
 	ret := m.Run()
@@ -153,6 +227,34 @@ H1OgVBOwIiT8ogwn/h1jPH1xRG37ftXZnOVpBjoE6BwVIcNzVa80dR6+yr64H0g8
 DXaeFmhgwUbcY/dmrFMP6w3JNLO/gBtGxqPThlyE9C1C7XiJUAs88i0CqUL+bpb9
 LxRjbauUde0pzZx8VUmbZ2AA9halL7cuSxBTwuTlVgfcZatlgh7TbbiXOSGsq6gi
 ZBCLq8bfn7ZZWn+AnVYijkrWUyjYFpz/hcpJ4VzMp7vEDcyxnh0fGOs=
+-----END RSA PRIVATE KEY-----
+`
+	SomeOtherKey string = `-----BEGIN RSA PRIVATE KEY-----
+MIIEpAIBAAKCAQEA3j+sMete0f1BzXRRuYAAy4i3SdKITVhe9A9g0MG4GH4H96Oy
+Q8mEJYPqpSQ2QZlVv9ObVr1bIFMqBaWYEEpOtECBrfPN/nWxocCAl0hPI7hvGRV0
+TIMZ3uBITldJvgwwYJi2QcXADK5zsOGneroabGGik18VBEz6wyKDS9w8tVFRsD1A
+JhQuMSg+IDv4Q2vqbwoSq2pq/e7uQf4+cfSu5lV2pJIZJo8mq6YsrNpgk7L7vk/E
+zRuhUh3HsugPOCKdJgGs8h3K9AlxEZlrRrRNeBH+bGtuOs5K4B93SPBUZ0wkwWkU
+CC2yzHs3kEjxRmmxzXQiRAvK4F/M4aZrAnq3WwIDAQABAoIBAB/3JHshkUe+l0JH
+oqF9iZ+8kDAr+bK2LSIJPDGKS0IqjlbN0ovxZfJHYO5ToQIaXbzzYHo/TeX+UCLz
+yEU/isZeKMiuMkiRAPV0zIn1unw2wLPo5AtFJ+lodL3fzBlrg2HBVSVsncy1Iqqk
+KgR60+YWvN1ZZZpyv/Zk9mFo0cp6HRdFVPx5AHlHb/RM/Lo/QFN+NXKqFpXs9BOx
+O83xC0gUHt/weslRuzAQBQlj6+B4hOgCRyEVx3wMLZ8GoQQAdK6cPndgGqrg+9Sf
+PAd+RKfjKHUVe8zh94Cl0MRIm9J+HrFVO00yBQpjbxAGPttQ5/2Ee91pZouRWGZ7
+XZY/4tECgYEA8wNq/0AMKC5xxn0MiGoP72BOJb1pWJ2XlDvKvw9gssImPWAmtju0
+bsBr8/9xR52a56SApANIwugdSPt5L8pzgzmNIzyHuuooYAOpeED+RvQTgsOCfG3N
+iGfvA+p55c2sZfhxxosAaH+EfrpAvne2zzmQpKlT/qc2eaAHg7oiyTcCgYEA6iAu
+ULXaC30zsNdb8xoNa+jqEfNk7ag3W76u6+FVNu/kgsH3Lknza1YXl1Cp+RDqk7vA
+s/PlNnfOzZuPrftp4brkZ0g6lxmx9CsF0luGcGB5qqNfAexZxrCJDxh2wUvXqRKf
+ggCy592ZazsHFpL0oOVaPwh1v5hiMmYTCHszBP0CgYEAlhrZX3sPR06Q5prdP/HL
+j/+7paIezSbityRLssJr5173Qdf/cXbll7dxtxBkx2i5gzXgY+7HZeT8GdWDYJq7
+ySWmYUqFSFZUxCHe7zGuHuOqnY3oLrWgTA5u28tcqi7lu0K//HRltyZ1D9Y6IaxO
+lieniZ4yDMz6YBwSKDK0Q/cCgYEA3kwj7bpdB9+e/t/cjFxGNhl2dgjV4dmAhnns
++EaBdKIeJBErMyZAG8AosiGC4duv/wmcFMEU97yV/R8hMx6uEAg16eLozqM1FhLr
+eiow4e6YVu67vMW/ECp6WHzv9OSgJgZqsTMcq476ppfrSQHLiCF8qLDNrFdxlUzZ
+8YmYjbkCgYBf/GsCR/KjwUCouFq5hsRSzEPtSZ9Po4Eyjv7LtX+TF2danKak44bU
+RiYfqbigxDM/TsoNEqkWj8lrgE+8tjp/q39iQL41vcNbt7nqCYc8ReQ1tKrC3j3L
+JhONIdLcifl7DeJMLPm9eSQeeTL7Tmqt/0m2kcJW6TrxcLls+RqtiQ==
 -----END RSA PRIVATE KEY-----
 `
 	SecretData []byte = []byte(`Congress shall make no law respecting an establishment of

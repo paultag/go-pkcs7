@@ -468,6 +468,13 @@ type ContentInfo struct {
 	Content asn1.RawValue `asn1:"explicit,optional,tag:0`
 }
 
+func Data(data []byte) (*ContentInfo, error) {
+	return &ContentInfo{
+		Type:    oidData,
+		Content: asn1.RawValue{Bytes: data},
+	}, nil
+}
+
 func (c ContentInfo) RawContent() ([]byte, error) {
 	var asn1Cert asn1.RawValue
 	if _, err := asn1.Unmarshal(c.Content.Bytes, &asn1Cert); err != nil {
