@@ -33,6 +33,8 @@ import (
 	"pault.ag/go/pkcs7/utils"
 )
 
+// entropy helper {{{
+
 func readRand(rand io.Reader, size int) ([]byte, error) {
 	data := make([]byte, size)
 	n, err := io.ReadFull(rand, data)
@@ -44,6 +46,10 @@ func readRand(rand io.Reader, size int) ([]byte, error) {
 	}
 	return data, nil
 }
+
+// }}}
+
+// {{{ struct creation helpers
 
 func newIssuerAndSerialNumber(cert x509.Certificate) (*IssuerAndSerialNumber, error) {
 	return &IssuerAndSerialNumber{
@@ -153,6 +159,10 @@ func newSignerInfo(
 	}, nil
 }
 
+// }}}
+
+// {{{ Sign
+
 func signAttributes(rand io.Reader, attributes AttributeSet, hash crypto.Hash, signer crypto.Signer, opts crypto.SignerOpts) ([]byte, error) {
 	data, err := asn1.Marshal(attributes)
 	if err != nil {
@@ -259,7 +269,10 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 	return newContentInfo(oidSignedData, signedDataBytes)
 }
 
-//
+// }}}
+
+// {{{ Encryption
+
 func Encrypt(rand io.Reader, to []x509.Certificate, plaintext []byte) (*ContentInfo, error) {
 	// sessionKey and IV are tied to AES 256; change this to read the BlockSize
 	// and friends.
@@ -315,5 +328,7 @@ func Encrypt(rand io.Reader, to []x509.Certificate, plaintext []byte) (*ContentI
 
 	return newContentInfo(oidEnvelopedData, envelopedDataBytes)
 }
+
+// }}}
 
 // vim: foldmethod=marker

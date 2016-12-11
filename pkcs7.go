@@ -368,8 +368,8 @@ func (r RecipientInfo) Matches(cert x509.Certificate) bool {
 
 // Get the content key out of the EncryptedKey entry
 func (r RecipientInfo) Decrypt(
-	decrypter crypto.Decrypter,
 	rand io.Reader,
+	decrypter crypto.Decrypter,
 	opts crypto.DecrypterOpts,
 ) ([]byte, error) {
 	return decrypter.Decrypt(rand, r.EncryptedKey, opts)
@@ -399,14 +399,14 @@ type EnvelopedData struct {
 	EncryptedContentInfo EncryptedContentInfo
 }
 
-func (e EnvelopedData) Decrypt(cert x509.Certificate, decrypter crypto.Decrypter, rand io.Reader, opts crypto.DecrypterOpts) ([]byte, error) {
+func (e EnvelopedData) Decrypt(rand io.Reader, cert x509.Certificate, decrypter crypto.Decrypter, opts crypto.DecrypterOpts) ([]byte, error) {
 	/* Now, let's find our RecipientInfo payload */
 	whoami, err := e.Recipients.Find(cert)
 	if err != nil {
 		return nil, err
 	}
 
-	decryptionKey, err := whoami.Decrypt(decrypter, rand, opts)
+	decryptionKey, err := whoami.Decrypt(rand, decrypter, opts)
 	if err != nil {
 		return nil, err
 	}

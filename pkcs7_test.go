@@ -74,7 +74,7 @@ func TestEncryptionRoundTrip(t *testing.T) {
 	envelopedData, err := contentInfo.EnvelopedData()
 	ok(t, err)
 
-	secretData, err := envelopedData.Decrypt(*aliceCert, aliceRsaPrivateKey, rand.Reader, nil)
+	secretData, err := envelopedData.Decrypt(rand.Reader, *aliceCert, aliceRsaPrivateKey, nil)
 	ok(t, err)
 
 	assert(t, bytes.Compare(secretData, SecretData) == 0, "decrypted data doesn't match test corpus")
@@ -97,7 +97,7 @@ func TestEncryptionStuffFails(t *testing.T) {
 	envelopedData, err := contentInfo.EnvelopedData()
 	ok(t, err)
 
-	_, err = envelopedData.Decrypt(*bobCert, bobRsaPrivateKey, rand.Reader, nil)
+	_, err = envelopedData.Decrypt(rand.Reader, *bobCert, bobRsaPrivateKey, nil)
 	nokay(t, err, "it thinks it decrypted it...")
 }
 
@@ -282,7 +282,7 @@ func TestOpenSSLEncrypt(t *testing.T) {
 	envelopedData, err := contentInfo.EnvelopedData()
 	ok(t, err)
 
-	data, err := envelopedData.Decrypt(*aliceCert, aliceRsaPrivateKey, rand.Reader, nil)
+	data, err := envelopedData.Decrypt(rand.Reader, *aliceCert, aliceRsaPrivateKey, nil)
 	ok(t, err)
 
 	assert(t, bytes.Compare(data, SecretData) == 0, "Data got damaged")
