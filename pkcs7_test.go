@@ -74,6 +74,27 @@ func TestEncryptionRoundTrip(t *testing.T) {
 	assert(t, bytes.Compare(secretData, SecretData) == 0, "decrypted data doesn't match test corpus")
 }
 
+func TestEncryptionStuffFails(t *testing.T) {
+	contentInfo, err := pkcs7.Encrypt(
+		rand.Reader,
+		[]x509.Certificate{*aliceCert},
+		SecretData,
+	)
+	ok(t, err)
+
+	contentInfoBytes, err := asn1.Marshal(*contentInfo)
+	ok(t, err)
+
+	contentInfo, err = pkcs7.Parse(contentInfoBytes)
+	ok(t, err)
+
+	envelopedData, err := contentInfo.EnvelopedData()
+	ok(t, err)
+
+	_, err = envelopedData.Decrypt(*bobCert, bobRsaPrivateKey, rand.Reader, nil)
+	nokay(t, err, "it thinks it decrypted it...")
+}
+
 func TestSign(t *testing.T) {
 	dataContentInfo, err := pkcs7.Data(SecretData)
 	ok(t, err)
@@ -117,6 +138,24 @@ func TestSignAndFailsToVerifyBadHash(t *testing.T) {
 	ok(t, err)
 
 	nokay(t, underlyingContentInfo.Verify(*aliceCert), "Hash validation passed")
+}
+
+func TestSignAndFailsToVerifyWithTotallyWrongCert(t *testing.T) {
+	dataContentInfo, err := pkcs7.Data(SecretData)
+	ok(t, err)
+	signedContentInfo, err := pkcs7.Sign(rand.Reader, *dataContentInfo, *aliceCert, aliceRsaPrivateKey, crypto.SHA256)
+	ok(t, err)
+
+	signedContentInfoBytes, err := asn1.Marshal(*signedContentInfo)
+	ok(t, err)
+
+	contentInfo, err := pkcs7.Parse(signedContentInfoBytes)
+	ok(t, err)
+
+	underlyingContentInfo, err := contentInfo.SignedData()
+	ok(t, err)
+
+	nokay(t, underlyingContentInfo.Verify(*bobCert), "Bogus signature was fine passed")
 }
 
 func TestSignAndFailsToVerifySignature(t *testing.T) {
