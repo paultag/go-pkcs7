@@ -3,7 +3,9 @@ package pkcs7_test
 import (
 	"bytes"
 	"flag"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"testing"
 
 	"crypto"
@@ -22,6 +24,10 @@ var bobCert *x509.Certificate
 var aliceRsaPrivateKey *rsa.PrivateKey
 var bobRsaPrivateKey *rsa.PrivateKey
 var malloryRsaPrivateKey *rsa.PrivateKey
+
+var aliceCertFilesystemLocation string
+var aliceRsaKeyFilesystemLocation string
+var firstAmendmentFilesystemLocation string
 
 func assert(t *testing.T, condition bool, what string) {
 	if !condition {
@@ -212,9 +218,83 @@ func TestMain(m *testing.M) {
 	}
 	malloryRsaPrivateKey = rsaKey
 
+	aliceCertFilesystem, err := ioutil.TempFile("", "pkcs7")
+	if err != nil {
+		panic(err)
+	}
+	aliceCertFilesystem.Write(AliceCert)
+	aliceCertFilesystemLocation = aliceCertFilesystem.Name()
+
+	aliceRsaKeyFilesystem, err := ioutil.TempFile("", "pkcs7")
+	if err != nil {
+		panic(err)
+	}
+	aliceRsaKeyFilesystem.Write(AliceKey)
+	aliceRsaKeyFilesystemLocation = aliceRsaKeyFilesystem.Name()
+
+	firstAmendmentFilesystem, err := ioutil.TempFile("", "pkcs7")
+	if err != nil {
+		panic(err)
+	}
+	firstAmendmentFilesystem.Write(SecretData)
+	firstAmendmentFilesystemLocation = firstAmendmentFilesystem.Name()
+
 	flag.Parse()
 	ret := m.Run()
+
+	os.Remove(aliceCertFilesystemLocation)
+	os.Remove(aliceRsaKeyFilesystemLocation)
+	os.Remove(firstAmendmentFilesystemLocation)
 	os.Exit(ret)
+}
+
+func TestOpenSSLVerify(t *testing.T) {
+	contentInfo, err := runOpensslSMIME([]string{
+		"smime",
+		"-sign", "-nodetach",
+		"-outform", "pem",
+		"-in", firstAmendmentFilesystemLocation,
+		"-signer", aliceCertFilesystemLocation,
+		"-inkey", aliceRsaKeyFilesystemLocation,
+	})
+	ok(t, err)
+	signedData, err := contentInfo.SignedData()
+	ok(t, err)
+	ok(t, signedData.Verify(*aliceCert))
+	nokay(t, signedData.Verify(*bobCert), "bob didn't do this")
+
+	data, err := signedData.ContentInfo.RawContent()
+	ok(t, err)
+
+	assert(t, bytes.Compare(data, SecretData) == 0, "Data got damaged")
+}
+
+func TestOpenSSLEncrypt(t *testing.T) {
+	contentInfo, err := runOpensslSMIME([]string{
+		"smime",
+
+		"-encrypt",
+		"-in", firstAmendmentFilesystemLocation,
+		"-outform", "pem",
+		aliceCertFilesystemLocation,
+	})
+	ok(t, err)
+	envelopedData, err := contentInfo.EnvelopedData()
+	ok(t, err)
+
+	data, err := envelopedData.Decrypt(*aliceCert, aliceRsaPrivateKey, rand.Reader, nil)
+	ok(t, err)
+
+	assert(t, bytes.Compare(data, SecretData) == 0, "Data got damaged")
+}
+
+func runOpensslSMIME(args []string) (*pkcs7.ContentInfo, error) {
+	out, err := exec.Command("openssl", args...).Output()
+	if err != nil {
+		return nil, err
+	}
+	block, _ := pem.Decode(out)
+	return pkcs7.Parse(block.Bytes)
 }
 
 var (
@@ -383,8 +463,5 @@ U+GUk8SK/t4vlvxCTUQa5KRWmLlPJLNXeXMioXZYkarzt1sgmtdQ3NLlnGR5/0sg
 -----END RSA PRIVATE KEY-----
 `)
 
-	SecretData []byte = []byte(`Congress shall make no law respecting an establishment of
-religion, or prohibiting the free exercise thereof; or abridging the freedom of
-speech, or of the press; or the right of the people peaceably to assemble, and
-to petition the Government for a redress of grievances.`)
+	SecretData []byte = []byte(`Congress shall make no law respecting an establishment of religion, or prohibiting the free exercise thereof; or abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances.`)
 )
