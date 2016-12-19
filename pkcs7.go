@@ -62,9 +62,9 @@ var (
 
 var (
 	// Data encapsulation
-	oidEnvelopedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 3}
-	oidSignedData    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
-	oidData          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
+	OIDEnvelopedData = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 3}
+	OIDSignedData    = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 2}
+	OIDData          = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 7, 1}
 
 	// OID for a message digest Attribute (usually found in the
 	// AuthenticatedAttributes)
@@ -468,10 +468,18 @@ type ContentInfo struct {
 	Content asn1.RawValue `asn1:"explicit,optional,tag:0`
 }
 
+func (c ContentInfo) Marshal() ([]byte, error) {
+	return asn1.Marshal(c)
+}
+
 func Data(data []byte) (*ContentInfo, error) {
+	rawData, err := asn1.Marshal(data)
+	if err != nil {
+		return nil, err
+	}
 	return &ContentInfo{
-		Type:    oidData,
-		Content: asn1.RawValue{Bytes: data},
+		Type:    OIDData,
+		Content: asn1.RawValue{Bytes: rawData},
 	}, nil
 }
 
@@ -484,7 +492,7 @@ func (c ContentInfo) RawContent() ([]byte, error) {
 }
 
 func (c ContentInfo) SignedData() (*SignedData, error) {
-	if !c.Type.Equal(oidSignedData) {
+	if !c.Type.Equal(OIDSignedData) {
 		return nil, fmt.Errorf(
 			"pkcs7: trying to parse SignedData without the right OID",
 		)
@@ -500,7 +508,7 @@ func (c ContentInfo) SignedData() (*SignedData, error) {
 // is not Enveloped, we'll return an error. otherwise, we'll unpack the
 // encrypted goodness into a EnvelopedData struct.
 func (c ContentInfo) EnvelopedData() (*EnvelopedData, error) {
-	if !c.Type.Equal(oidEnvelopedData) {
+	if !c.Type.Equal(OIDEnvelopedData) {
 		return nil, fmt.Errorf(
 			"pkcs7: trying to parse EnvelopedData without the right OID",
 		)

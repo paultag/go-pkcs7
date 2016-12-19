@@ -29,6 +29,8 @@ var aliceCertFilesystemLocation string
 var aliceRsaKeyFilesystemLocation string
 var firstAmendmentFilesystemLocation string
 
+// {{{ Helpers
+
 func assert(t *testing.T, condition bool, what string) {
 	if !condition {
 		t.Fatal(what)
@@ -44,6 +46,10 @@ func ok(t *testing.T, err error) {
 		t.Fatal(err.Error())
 	}
 }
+
+// }}}
+
+// {{{ Encryption
 
 func TestEncryption(t *testing.T) {
 	contentInfo, err := pkcs7.Encrypt(
@@ -100,6 +106,10 @@ func TestEncryptionStuffFails(t *testing.T) {
 	_, err = envelopedData.Decrypt(rand.Reader, *bobCert, bobRsaPrivateKey, nil)
 	nokay(t, err, "it thinks it decrypted it...")
 }
+
+// }}}
+
+// {{{ Signing
 
 func TestSign(t *testing.T) {
 	dataContentInfo, err := pkcs7.Data(SecretData)
@@ -182,6 +192,50 @@ func TestSignAndFailsToVerifySignature(t *testing.T) {
 	nokay(t, underlyingContentInfo.Verify(*aliceCert), "Bogus signature was fine passed")
 }
 
+// }}}
+
+// {{{ High level constructs
+
+func TestSignEncryptCombo(t *testing.T) {
+	// I'm Alice
+
+	encryptedData, err := pkcs7.Encrypt(rand.Reader, []x509.Certificate{*bobCert}, SecretData)
+	ok(t, err)
+
+	signedInfo, err := pkcs7.Sign(rand.Reader, *encryptedData, *aliceCert, aliceRsaPrivateKey, crypto.SHA256)
+	ok(t, err)
+
+	data, err := signedInfo.Marshal()
+	ok(t, err)
+
+	// OK, now I'm Bob
+
+	signedInfo, err = pkcs7.Parse(data)
+	ok(t, err)
+
+	signedData, err := signedInfo.SignedData()
+	ok(t, err)
+	ok(t, signedData.Verify(*aliceCert))
+
+	envelopedData, err := signedData.ContentInfo.EnvelopedData()
+	ok(t, err)
+
+	secretData, err := envelopedData.Decrypt(
+		rand.Reader,
+		*bobCert,
+		bobRsaPrivateKey,
+		nil,
+	)
+	ok(t, err)
+
+	assert(t, bytes.Compare(secretData, SecretData) == 0, "decrypted data didn't match")
+
+}
+
+// }}}
+
+// {{{ Main
+
 func TestMain(m *testing.M) {
 	block, _ := pem.Decode(AliceCert)
 	cert, err := x509.ParseCertificate(block.Bytes)
@@ -248,6 +302,10 @@ func TestMain(m *testing.M) {
 	os.Exit(ret)
 }
 
+// }}}
+
+// {{{ Compare against OpenSSL
+
 func TestOpenSSLVerify(t *testing.T) {
 	contentInfo, err := runOpensslSMIME([]string{
 		"smime",
@@ -288,6 +346,10 @@ func TestOpenSSLEncrypt(t *testing.T) {
 	assert(t, bytes.Compare(data, SecretData) == 0, "Data got damaged")
 }
 
+// }}}
+
+// {{{ OpenSSL Helper
+
 func runOpensslSMIME(args []string) (*pkcs7.ContentInfo, error) {
 	out, err := exec.Command("openssl", args...).Output()
 	if err != nil {
@@ -296,6 +358,10 @@ func runOpensslSMIME(args []string) (*pkcs7.ContentInfo, error) {
 	block, _ := pem.Decode(out)
 	return pkcs7.Parse(block.Bytes)
 }
+
+// }}}
+
+// {{{ Tracts of PEM
 
 var (
 	AliceCert []byte = []byte(`-----BEGIN CERTIFICATE-----
@@ -465,3 +531,7 @@ U+GUk8SK/t4vlvxCTUQa5KRWmLlPJLNXeXMioXZYkarzt1sgmtdQ3NLlnGR5/0sg
 
 	SecretData []byte = []byte(`Congress shall make no law respecting an establishment of religion, or prohibiting the free exercise thereof; or abridging the freedom of speech, or of the press; or the right of the people peaceably to assemble, and to petition the Government for a redress of grievances.`)
 )
+
+// }}}
+
+// vim: foldmethod=marker

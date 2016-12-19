@@ -1,4 +1,3 @@
-// {{{ Copyright (c) Paul R. Tagliamonte <paultag@gmail.com>, 2016
 // Permission is hereby granted, free of charge, to any person obtaining a
 // copy of this software and associated documentation files (the "Software"),
 // to deal in the Software without restriction, including without limitation
@@ -191,14 +190,13 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 		return nil, err
 	}
 
-	var rawValue asn1.RawValue
-	_, err = asn1.Unmarshal(contentInfo.Content.Bytes, &rawValue)
+	rawContentInfo, err := contentInfo.RawContent()
 	if err != nil {
 		return nil, err
 	}
 
 	hasher := hash.New()
-	hasher.Write(rawValue.Bytes)
+	hasher.Write(rawContentInfo)
 	hashBytes := hasher.Sum(nil)
 
 	marshaledHashBytes, err := asn1.Marshal(hashBytes)
@@ -266,7 +264,7 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 		return nil, err
 	}
 
-	return newContentInfo(oidSignedData, signedDataBytes)
+	return newContentInfo(OIDSignedData, signedDataBytes)
 }
 
 // }}}
@@ -306,7 +304,7 @@ func Encrypt(rand io.Reader, to []x509.Certificate, plaintext []byte) (*ContentI
 	encryptedBytes := make([]byte, len(plaintext))
 	blockMode.CryptBlocks(encryptedBytes, plaintext)
 
-	encryptedContentInfo, err := newEncryptedContentInfo(oidData, algorithm, encryptedBytes)
+	encryptedContentInfo, err := newEncryptedContentInfo(OIDData, algorithm, encryptedBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +324,7 @@ func Encrypt(rand io.Reader, to []x509.Certificate, plaintext []byte) (*ContentI
 		return nil, err
 	}
 
-	return newContentInfo(oidEnvelopedData, envelopedDataBytes)
+	return newContentInfo(OIDEnvelopedData, envelopedDataBytes)
 }
 
 // }}}
