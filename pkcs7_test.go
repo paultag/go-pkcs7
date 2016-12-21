@@ -125,7 +125,7 @@ func TestSignAndVerify(t *testing.T) {
 	signedData, err := pkcs7.NewSignedData(*dataContentInfo)
 	ok(t, err)
 
-	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256))
+	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256, nil, nil))
 
 	signedContentInfo, err := signedData.CreateContentInfo()
 	ok(t, err)
@@ -154,13 +154,13 @@ func TestSignAndVerifyTwice(t *testing.T) {
 	ok(t, err)
 	assert(t, len(certs) == 0, "Certificate length is off (0 sigs expected)")
 
-	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256))
+	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256, nil, nil))
 
 	certs, err = signedData.Certificates()
 	ok(t, err)
 	assert(t, len(certs) == 1, "Certificate length is off (1 sig expected)")
 
-	ok(t, signedData.Sign(rand.Reader, *bobCert, bobRsaPrivateKey, crypto.SHA256))
+	ok(t, signedData.Sign(rand.Reader, *bobCert, bobRsaPrivateKey, crypto.SHA256, nil, nil))
 
 	certs, err = signedData.Certificates()
 	ok(t, err)

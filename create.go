@@ -209,9 +209,14 @@ func (sd *SignedData) AddCertificate(cert x509.Certificate) error {
 
 func (sd *SignedData) Sign(
 	rand io.Reader,
+
 	cert x509.Certificate,
+
 	signer crypto.Signer,
 	opts crypto.SignerOpts,
+
+	unsignedAttributes Attributes,
+	signedAttributes Attributes,
 ) error {
 	signatureAlgorithm := oidSignatureAlgorithmRSA
 	hashingAlgorithm := oidDigestAlgorithmSHA256
@@ -240,7 +245,7 @@ func (sd *SignedData) Sign(
 		return err
 	}
 
-	authenticatedAttributes := Attributes{
+	authenticatedAttributes := append(signedAttributes, Attributes{
 		Attribute{
 			Type: oidAttributeMessageDigest,
 			Value: asn1.RawValue{
@@ -249,8 +254,8 @@ func (sd *SignedData) Sign(
 				Bytes:      marshaledHashBytes,
 			},
 		},
-	}
-	unauthenticatedAttributes := Attributes{}
+	}...)
+	unauthenticatedAttributes := append(unsignedAttributes, Attributes{}...)
 
 	attributeHashSignature, err := signAttributes(
 		rand,
@@ -306,7 +311,7 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 		return nil, err
 	}
 
-	if err := signedData.Sign(rand, cert, signer, opts); err != nil {
+	if err := signedData.Sign(rand, cert, signer, opts, nil, nil); err != nil {
 		return nil, err
 	}
 
