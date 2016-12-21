@@ -112,14 +112,20 @@ func newRecipients(rand io.Reader, to []x509.Certificate, encryptionAlgorithm pk
 	return &recipients, nil
 }
 
-func newRawCertificates(certs []x509.Certificate) (*RawCertificates, error) {
+func newRawCertificates(certs []*x509.Certificate) (*RawCertificates, error) {
 	rawData := []byte{}
 	for _, cert := range certs {
 		rawData = append(rawData, cert.Raw...)
 	}
 
+	var val = asn1.RawValue{Bytes: rawData, Class: 2, Tag: 0, IsCompound: true}
+	b, err := asn1.Marshal(val)
+	if err != nil {
+		return nil, err
+	}
+
 	return &RawCertificates{
-		Raw: asn1.RawContent(rawData),
+		Raw: asn1.RawContent(b),
 	}, nil
 
 }
@@ -177,23 +183,52 @@ func signAttributes(rand io.Reader, attributes AttributeSet, hash crypto.Hash, s
 	return signer.Sign(rand, hasher.Sum(nil), opts)
 }
 
-func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer crypto.Signer, opts crypto.SignerOpts) (*ContentInfo, error) {
+func NewSignedData(contentInfo ContentInfo) (*SignedData, error) {
+	return newSignedData(
+		[]pkix.AlgorithmIdentifier{},
+		contentInfo,
+		RawCertificates{},
+		[]pkix.CertificateList{},
+		SignersInfo{},
+	)
+}
+
+func (sd *SignedData) AddCertificate(cert x509.Certificate) error {
+	certs, err := sd.Certificates()
+	if err != nil {
+		return err
+	}
+	certs = append(certs, &cert)
+	rawCertificates, err := newRawCertificates(certs)
+	if err != nil {
+		return err
+	}
+	sd.RawCertificates = *rawCertificates
+	return nil
+}
+
+func (sd *SignedData) Sign(
+	rand io.Reader,
+	cert x509.Certificate,
+	signer crypto.Signer,
+	opts crypto.SignerOpts,
+) error {
 	signatureAlgorithm := oidSignatureAlgorithmRSA
 	hashingAlgorithm := oidDigestAlgorithmSHA256
 
 	issuerAndSerialNumber, err := newIssuerAndSerialNumber(cert)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	hash, err := getHashByOID(hashingAlgorithm)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	rawContentInfo, err := contentInfo.RawContent()
+	rawContentInfo, err := sd.ContentInfo.RawContent()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	hasher := hash.New()
@@ -202,7 +237,7 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 
 	marshaledHashBytes, err := asn1.Marshal(hashBytes)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	authenticatedAttributes := Attributes{
@@ -225,7 +260,7 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 		opts,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	signerInfo, err := newSignerInfo(
@@ -237,35 +272,44 @@ func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer
 		unauthenticatedAttributes,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	certificates, err := newRawCertificates([]x509.Certificate{cert})
+	sd.SignerInfo = append(sd.SignerInfo, *signerInfo)
+	if err := sd.AddCertificate(cert); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (sd SignedData) CreateContentInfo() (*ContentInfo, error) {
+	signedDataBytes, err := asn1.Marshal(sd)
 	if err != nil {
 		return nil, err
 	}
+	return newContentInfo(OIDSignedData, signedDataBytes)
+}
 
+func Sign(rand io.Reader, contentInfo ContentInfo, cert x509.Certificate, signer crypto.Signer, opts crypto.SignerOpts) (*ContentInfo, error) {
+	// XXX: TODO: Implement the AlgorithmIdentifier bits for one pass
+	//            hashing
 	signedData, err := newSignedData(
-		[]pkix.AlgorithmIdentifier{
-			pkix.AlgorithmIdentifier{
-				Algorithm: hashingAlgorithm,
-			},
-		},
+		[]pkix.AlgorithmIdentifier{},
 		contentInfo,
-		*certificates,
+		RawCertificates{},
 		[]pkix.CertificateList{},
-		SignersInfo{*signerInfo},
+		SignersInfo{},
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	signedDataBytes, err := asn1.Marshal(*signedData)
-	if err != nil {
+	if err := signedData.Sign(rand, cert, signer, opts); err != nil {
 		return nil, err
 	}
 
-	return newContentInfo(OIDSignedData, signedDataBytes)
+	return signedData.CreateContentInfo()
 }
 
 // }}}

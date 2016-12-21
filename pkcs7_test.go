@@ -121,7 +121,13 @@ func TestSign(t *testing.T) {
 func TestSignAndVerify(t *testing.T) {
 	dataContentInfo, err := pkcs7.Data(SecretData)
 	ok(t, err)
-	signedContentInfo, err := pkcs7.Sign(rand.Reader, *dataContentInfo, *aliceCert, aliceRsaPrivateKey, crypto.SHA256)
+
+	signedData, err := pkcs7.NewSignedData(*dataContentInfo)
+	ok(t, err)
+
+	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256))
+
+	signedContentInfo, err := signedData.CreateContentInfo()
 	ok(t, err)
 
 	signedContentInfoBytes, err := asn1.Marshal(*signedContentInfo)
@@ -134,6 +140,46 @@ func TestSignAndVerify(t *testing.T) {
 	ok(t, err)
 
 	ok(t, underlyingContentInfo.Verify(*aliceCert))
+	nokay(t, underlyingContentInfo.Verify(*bobCert), "signature looked good from bob")
+}
+
+func TestSignAndVerifyTwice(t *testing.T) {
+	dataContentInfo, err := pkcs7.Data(SecretData)
+	ok(t, err)
+
+	signedData, err := pkcs7.NewSignedData(*dataContentInfo)
+	ok(t, err)
+
+	certs, err := signedData.Certificates()
+	ok(t, err)
+	assert(t, len(certs) == 0, "Certificate length is off (0 sigs expected)")
+
+	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256))
+
+	certs, err = signedData.Certificates()
+	ok(t, err)
+	assert(t, len(certs) == 1, "Certificate length is off (1 sig expected)")
+
+	ok(t, signedData.Sign(rand.Reader, *bobCert, bobRsaPrivateKey, crypto.SHA256))
+
+	certs, err = signedData.Certificates()
+	ok(t, err)
+	assert(t, len(certs) == 2, "Certificate length is off (2 sigs expected)")
+
+	signedContentInfo, err := signedData.CreateContentInfo()
+	ok(t, err)
+
+	signedContentInfoBytes, err := asn1.Marshal(*signedContentInfo)
+	ok(t, err)
+
+	contentInfo, err := pkcs7.Parse(signedContentInfoBytes)
+	ok(t, err)
+
+	underlyingContentInfo, err := contentInfo.SignedData()
+	ok(t, err)
+
+	ok(t, underlyingContentInfo.Verify(*aliceCert))
+	ok(t, underlyingContentInfo.Verify(*bobCert))
 }
 
 func TestSignAndFailsToVerifyBadHash(t *testing.T) {
