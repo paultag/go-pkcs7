@@ -280,6 +280,7 @@ func (sd *SignedData) Sign(
 		return err
 	}
 
+	// XXX: Add the hashingAlgorithm to the SignedData
 	return nil
 }
 
