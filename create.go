@@ -217,8 +217,8 @@ func (sd *SignedData) Sign(
 	signer crypto.Signer,
 	opts crypto.SignerOpts,
 
-	unsignedAttributes Attributes,
 	signedAttributes Attributes,
+	unsignedAttributes Attributes,
 ) error {
 	signatureAlgorithm := oidSignatureAlgorithmRSA
 	hashingAlgorithm := oidDigestAlgorithmSHA256
