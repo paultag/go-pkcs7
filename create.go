@@ -285,9 +285,26 @@ func (sd *SignedData) Sign(
 		return err
 	}
 
-	// XXX: Add the hashingAlgorithm to the SignedData
+	if err := sd.AddDigestAlgorithmIdentifier(pkix.AlgorithmIdentifier{
+		Algorithm: hashingAlgorithm,
+	}); err != nil {
+		return err
+	}
+
 	return nil
 }
+
+func (sd *SignedData) AddDigestAlgorithmIdentifier(id pkix.AlgorithmIdentifier) error {
+	for _, el := range sd.DigestAlgorithmIdentifiers {
+		if el.Algorithm.Equal(id.Algorithm) {
+			return nil
+		}
+	}
+	sd.DigestAlgorithmIdentifiers = append(sd.DigestAlgorithmIdentifiers, id)
+	return nil
+}
+
+// DigestAlgorithmIdentifiers
 
 func (sd SignedData) CreateContentInfo() (*ContentInfo, error) {
 	signedDataBytes, err := asn1.Marshal(sd)

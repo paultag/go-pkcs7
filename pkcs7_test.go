@@ -153,8 +153,10 @@ func TestSignAndVerifyTwice(t *testing.T) {
 	certs, err := signedData.Certificates()
 	ok(t, err)
 	assert(t, len(certs) == 0, "Certificate length is off (0 sigs expected)")
+	assert(t, len(signedData.DigestAlgorithmIdentifiers) == 0, "Certificate digest length is off (0 digests expected)")
 
 	ok(t, signedData.Sign(rand.Reader, *aliceCert, aliceRsaPrivateKey, crypto.SHA256, nil, nil))
+	assert(t, len(signedData.DigestAlgorithmIdentifiers) == 1, "Certificate digest length is off (1 digests expected)")
 
 	certs, err = signedData.Certificates()
 	ok(t, err)
@@ -165,6 +167,8 @@ func TestSignAndVerifyTwice(t *testing.T) {
 	certs, err = signedData.Certificates()
 	ok(t, err)
 	assert(t, len(certs) == 2, "Certificate length is off (2 sigs expected)")
+
+	assert(t, len(signedData.DigestAlgorithmIdentifiers) == 1, "Certificate digest length is off (1 digests expected)")
 
 	signedContentInfo, err := signedData.CreateContentInfo()
 	ok(t, err)
