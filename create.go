@@ -35,6 +35,8 @@ import (
 
 // entropy helper {{{
 
+// Read `size` bytes of entropy from `rand`, and return that sweet sweet
+// PRNG data back to the caller.
 func readRand(rand io.Reader, size int) ([]byte, error) {
 	data := make([]byte, size)
 	n, err := io.ReadFull(rand, data)
