@@ -91,6 +91,9 @@ var (
 // in the SignerInfo, which can be used out in a call x509.CheckSignature
 // If we need additional algorithms or hashes to check (or create) signatures,
 // this is the bits that need to know about it.
+//
+// XXX: is using digestAlgorithm right? Maybe it's secretly just a matter of
+//      checking the signatureAlgorithm Parameters?
 func getSignatureAlgorithmByOID(signerInfo SignerInfo) (x509.SignatureAlgorithm, error) {
 	digestAlgorithm := signerInfo.DigestAlgorithm.Algorithm
 	signatureAlgorithm := signerInfo.DigestEncryptionAlgorithm.Algorithm
@@ -123,6 +126,9 @@ func getHashByOID(oid asn1.ObjectIdentifier) (crypto.Hash, error) {
 	}
 }
 
+// Create a new block cipher by an asn1.ObjectIdentifier
+//
+// XXX: should this return a cipher.BlockMode ?
 func getBlockCipherByOID(algorithm asn1.ObjectIdentifier, key []byte) (cipher.Block, error) {
 	switch {
 	case algorithm.Equal(oidEncryptionDESCBC):
@@ -157,6 +163,14 @@ func marshal(data interface{}) (*asn1.RawValue, error) {
 type Attribute struct {
 	Type  asn1.ObjectIdentifier
 	Value asn1.RawValue `asn1:"set"`
+}
+
+func (a Attribute) Bytes() ([]byte, error) {
+	var val asn1.RawValue
+	if _, err := asn1.Unmarshal(a.Value.Bytes, &val); err != nil {
+		return nil, err
+	}
+	return val.Bytes, nil
 }
 
 type Attributes []Attribute
