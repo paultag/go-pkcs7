@@ -162,18 +162,34 @@ func marshal(data interface{}) (*asn1.RawValue, error) {
 
 type Attribute struct {
 	Type  asn1.ObjectIdentifier
-	Value asn1.RawValue `asn1:"set"`
+	Value asn1.RawValue
 }
 
-func (a Attribute) Bytes() ([]byte, error) {
-	var val asn1.RawValue
-	if _, err := asn1.Unmarshal(a.Value.Bytes, &val); err != nil {
+func NewAttribute(oid asn1.ObjectIdentifier, data interface{}) (*Attribute, error) {
+	asn1Value, err := marshal(data)
+	if err != nil {
 		return nil, err
 	}
-	return val.Bytes, nil
+	return &Attribute{
+		Type: oid,
+		Value: asn1.RawValue{
+			Tag:        17,
+			IsCompound: true,
+			Bytes:      asn1Value.FullBytes,
+		},
+	}, nil
 }
 
 type Attributes []Attribute
+
+func (a Attributes) Unmarshal(attributeType asn1.ObjectIdentifier, out interface{}) error {
+	attribute, err := a.Find(attributeType)
+	if err != nil {
+		return err
+	}
+	_, err = asn1.Unmarshal(attribute.Value.Bytes, out)
+	return err
+}
 
 func (a Attributes) Find(attributeType asn1.ObjectIdentifier) (*Attribute, error) {
 	for _, el := range a {
@@ -438,9 +454,29 @@ type EncryptedContentInfo struct {
 	Content   asn1.RawValue `asn1:"explicit,optional,tag:0"`
 }
 
+func (e EncryptedContentInfo) getEncryptedBytes() ([]byte, error) {
+	if !e.Content.IsCompound {
+		return e.Content.Bytes, nil
+	}
+	var buf bytes.Buffer
+	bytes := e.Content.Bytes
+	for {
+		var chunk []byte
+		bytes, _ = asn1.Unmarshal(bytes, &chunk)
+		buf.Write(chunk)
+		if bytes == nil {
+			break
+		}
+	}
+	return buf.Bytes(), nil
+}
+
 // For users who know what they're doing, here's the knob.
 func (e EncryptedContentInfo) RawDecrypt(key []byte) ([]byte, error) {
-	encryptedBytes := e.Content.Bytes
+	encryptedBytes, err := e.getEncryptedBytes()
+	if err != nil {
+		return nil, err
+	}
 
 	blockCipher, err := getBlockCipherByOID(e.Algorithm.Algorithm, key)
 	if err != nil {
