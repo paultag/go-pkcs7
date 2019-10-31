@@ -451,7 +451,7 @@ func (e EnvelopedData) Decrypt(rand io.Reader, cert x509.Certificate, decrypter 
 type EncryptedContentInfo struct {
 	Type      asn1.ObjectIdentifier
 	Algorithm pkix.AlgorithmIdentifier
-	Content   asn1.RawValue `asn1:"explicit,optional,tag:0"`
+	Content   asn1.RawValue `asn1:"optional,tag:0"`
 }
 
 func (e EncryptedContentInfo) getEncryptedBytes() ([]byte, error) {
